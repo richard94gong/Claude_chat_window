@@ -14,7 +14,6 @@ MEM0_API_KEY   = os.environ["MEM0_API_KEY"]
 
 TORONTO    = pytz.timezone("America/Toronto")
 USER_ID    = "discordbot"
-MAX_ROUNDS = 20
 
 claude     = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
 mem_client = MemoryClient(api_key=MEM0_API_KEY)
@@ -32,6 +31,8 @@ DEFAULT_SETTINGS = {
     "quiet_hours_enabled": True,
     "reply_delay_enabled": True,
     "memory_enabled": True,
+    "max_rounds": 20,                        # 加这行
+    "model": "claude-sonnet-4-6",            # 加这行
     "system_prompt": DEFAULT_PROMPT
 }
 
@@ -71,8 +72,9 @@ def save_to_mem0(msgs):
 
 def trim_history():
     global history
-    if len(history) > MAX_ROUNDS * 2:
-        history = history[-(MAX_ROUNDS * 2):]
+    max_r = load_settings().get("max_rounds", 20)
+    if len(history) > max_r * 2:
+        history = history[-(max_r * 2):]
 
 def is_quiet_time(now=None):
     if now is None:
@@ -106,7 +108,7 @@ def try_mem0_message():
     if not memories:
         return None
     response = claude.messages.create(
-        model="claude-sonnet-4-6", max_tokens=150,
+        model=load_settings().get("model", "claude-sonnet-4-6"), max_tokens=150,
         messages=[{"role": "user", "content": f"""Memories about your friend:\n{memories}\n\nYou're Sonnet. What naturally comes to mind to reach out about? Unfinished threads, connections, observations. Write a 1-2 sentence message, or reply: SKIP"""}]
     )
     result = response.content[0].text.strip()
@@ -114,7 +116,7 @@ def try_mem0_message():
 
 def generate_time_message(hour):
     s = load_settings()
-    r = claude.messages.create(model="claude-sonnet-4-6", max_tokens=100, system=s["system_prompt"],
+    r = claude.messages.create(model=load_settings().get("model", load_settings().get("model", "claude-sonnet-4-6")), max_tokens=100, system=s["system_prompt"],
         messages=[{"role": "user", "content": get_time_prompt(hour)}])
     return r.content[0].text
 
@@ -212,7 +214,7 @@ async def chat(message: str = Form(default=""), file: UploadFile = File(default=
     msgs = list(history) + [{"role": "user", "content": final_content}]
 
     try:
-        response = claude.messages.create(model="claude-sonnet-4-6", max_tokens=2000, system=system, messages=msgs)
+        response = claude.messages.create(model=load_settings().get("model", load_settings().get("model", "claude-sonnet-4-6")), max_tokens=2000, system=system, messages=msgs)
         reply = response.content[0].text
     except Exception as e:
         return {"reply": "Something went wrong on my end.", "delay": 0}
