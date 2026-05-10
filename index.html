@@ -129,6 +129,19 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sa
         <div><div class="t-label">Long-term memory</div><div class="t-sub">Powered by Mem0</div></div>
         <div class="toggle" id="t-mem" onclick="toggle('memory_enabled',this)"></div>
       </div>
+      <div class="s-lbl">Model & memory</div>
+<div class="t-row">
+  <div><div class="t-label">Model</div><div class="t-sub">Switch anytime</div></div>
+  <select id="model-sel" onchange="saveSetting('model',this.value)" style="font-size:13px;padding:5px 8px;border-radius:8px;border:.5px solid #e5e5e5;background:#fafafa;color:#1a1a1a;font-family:inherit">
+    <option value="claude-sonnet-4-6">Sonnet 4.6</option>
+    <option value="claude-opus-4-6">Opus 4.6</option>
+    <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
+  </select>
+</div>
+<div class="t-row" style="align-items:center">
+  <div><div class="t-label">Max conversation rounds</div><div class="t-sub">How much context to keep</div></div>
+  <input type="number" id="rounds-input" min="5" max="100" value="20" onchange="saveSetting('max_rounds',parseInt(this.value))" style="width:56px;font-size:14px;padding:5px 8px;border-radius:8px;border:.5px solid #e5e5e5;background:#fafafa;color:#1a1a1a;text-align:center;font-family:inherit">
+</div>
       <div class="s-lbl">System prompt</div>
       <div class="prompt-wrap">
         <div class="prompt-lbl">Sonnet's personality and instructions</div>
@@ -153,6 +166,8 @@ async function loadSettings(){
       document.getElementById('t-'+k).className='toggle '+(settings[keys[i]]?'on':'');
     });
     document.getElementById('prompt-ta').value=settings.system_prompt||'';
+    document.getElementById('model-sel').value = settings.model || 'claude-sonnet-4-6';
+document.getElementById('rounds-input').value = settings.max_rounds || 20;
   }catch(e){console.error(e)}
 }
 
@@ -162,6 +177,10 @@ async function toggle(key,el){
   await fetch('/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[key]:settings[key]})});
 }
 
+  async function saveSetting(key, value) {
+  settings[key] = value;
+  await fetch('/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({[key]:value})});
+}
 async function savePrompt(){
   const p=document.getElementById('prompt-ta').value;
   await fetch('/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system_prompt:p})});
