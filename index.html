@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Sonnet">
+<meta name="theme-color" content="#534AB7">
+<link rel="manifest" href="/manifest.json">
+<title>Sonnet</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0}
+#app{display:flex;flex-direction:column;height:100dvh;max-width:640px;margin:0 auto;background:#fff;position:relative;overflow:hidden}
+.nav{padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:.5px solid #e5e5e5;background:#fff;flex-shrink:0}
+.nav-av{width:36px;height:36px;border-radius:50%;background:#EEEDFE;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:#3C3489;flex-shrink:0}
+.nav-name{font-size:15px;font-weight:500;color:#1a1a1a}
+.nav-sub{font-size:11px;color:#534AB7}
+.nav-btn{margin-left:auto;width:36px;height:36px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#888;border-radius:8px}
+.chat{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:#f8f8f6}
+.date-lbl{text-align:center;font-size:11px;color:#aaa;margin:4px 0}
+.msg-wrap{display:flex;flex-direction:column}
+.msg-wrap.user{align-items:flex-end}
+.msg-wrap.bot,.msg-wrap.proactive{align-items:flex-start}
+.msg-row{display:flex;align-items:flex-end;gap:7px}
+.msg-wrap.user .msg-row{flex-direction:row-reverse}
+.msg-av{width:28px;height:28px;border-radius:50%;background:#EEEDFE;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:#3C3489;flex-shrink:0}
+.bubble{max-width:72vw;padding:9px 13px;font-size:14px;line-height:1.55;word-wrap:break-word;white-space:pre-wrap}
+.bubble.bot{background:#fff;border:.5px solid #e5e5e5;border-radius:16px 16px 16px 4px;color:#1a1a1a}
+.bubble.user{background:#534AB7;color:#fff;border-radius:16px 16px 4px 16px}
+.bubble.proactive{background:#EEEDFE;border:.5px solid #AFA9EC;border-radius:16px 16px 16px 4px;color:#3C3489}
+.msg-time{font-size:10px;color:#bbb;padding:2px 4px}
+.pro-tag{font-size:10px;color:#534AB7;padding-left:35px;margin-bottom:2px}
+.typing{display:flex;align-items:center;gap:5px;padding:9px 13px;background:#fff;border:.5px solid #e5e5e5;border-radius:16px 16px 16px 4px;width:fit-content}
+.dot{width:6px;height:6px;border-radius:50%;background:#ccc;animation:bounce 1.2s infinite}
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+.file-prev{display:flex;align-items:center;gap:8px;background:#f0eff8;border:.5px solid #AFA9EC;border-radius:10px;padding:8px 12px;margin-bottom:6px}
+.file-prev-name{font-size:13px;color:#3C3489;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-rm{font-size:18px;color:#999;cursor:pointer;border:none;background:none;line-height:1}
+.input-area{padding:10px 12px 24px;background:#fff;border-top:.5px solid #e5e5e5;flex-shrink:0}
+.input-row{display:flex;align-items:flex-end;gap:8px}
+.input-box{flex:1;background:#f5f5f0;border:.5px solid #e5e5e5;border-radius:20px;padding:9px 14px;font-size:14px;color:#1a1a1a;outline:none;font-family:inherit;resize:none;max-height:120px;line-height:1.5}
+.input-box::placeholder{color:#bbb}
+.attach-btn,.send-btn{width:36px;height:36px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.attach-btn{background:#f0eff8;color:#534AB7}
+.send-btn{background:#534AB7;color:#fff}
+.send-btn:disabled{background:#ccc;cursor:default}
+#file-input{display:none}
+.settings{position:absolute;top:0;left:0;right:0;bottom:0;background:#fff;z-index:20;transform:translateX(100%);transition:transform .25s ease;display:flex;flex-direction:column}
+.settings.open{transform:translateX(0)}
+.s-nav{padding:12px 16px;display:flex;align-items:center;border-bottom:.5px solid #e5e5e5;gap:8px;flex-shrink:0}
+.back-btn{display:flex;align-items:center;gap:4px;color:#534AB7;font-size:14px;cursor:pointer;border:none;background:none;font-family:inherit;padding:4px}
+.s-title{flex:1;text-align:center;font-size:16px;font-weight:500}
+.s-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:6px}
+.s-lbl{font-size:11px;font-weight:500;color:#aaa;text-transform:uppercase;letter-spacing:.05em;margin:12px 0 4px}
+.s-lbl:first-child{margin-top:0}
+.t-row{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:#fafafa;border-radius:10px;border:.5px solid #e5e5e5}
+.t-label{font-size:14px;color:#1a1a1a}
+.t-sub{font-size:12px;color:#888;margin-top:1px}
+.toggle{width:44px;height:26px;border-radius:13px;background:#ccc;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.toggle.on{background:#534AB7}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s}
+.toggle.on::after{left:21px}
+.prompt-wrap{display:flex;flex-direction:column;gap:6px}
+.prompt-lbl{font-size:13px;color:#555}
+.prompt-ta{width:100%;padding:10px 12px;border:.5px solid #e5e5e5;border-radius:10px;font-size:13px;font-family:inherit;color:#1a1a1a;background:#fafafa;resize:vertical;min-height:140px;outline:none;line-height:1.5}
+.prompt-ta:focus{border-color:#534AB7}
+.save-btn{padding:11px;border-radius:10px;background:#534AB7;color:#fff;border:none;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="nav">
+    <div class="nav-av">S</div>
+    <div>
+      <div class="nav-name">Sonnet</div>
+      <div class="nav-sub">● online</div>
+    </div>
+    <button class="nav-btn" onclick="openSettings()" aria-label="Settings">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+
+  <div class="chat" id="chat">
+    <div class="date-lbl">Today</div>
+  </div>
+
+  <div class="input-area">
+    <div id="file-prev-area"></div>
+    <div class="input-row">
+      <input type="file" id="file-input" accept=".pdf,image/*" onchange="handleFile(this)">
+      <button class="attach-btn" onclick="document.getElementById('file-input').click()" aria-label="Attach">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      </button>
+      <textarea class="input-box" id="msg-input" placeholder="Message" rows="1" onkeydown="handleKey(event)" oninput="resize(this)"></textarea>
+      <button class="send-btn" id="send-btn" onclick="send()" aria-label="Send">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="settings" id="sp">
+    <div class="s-nav">
+      <button class="back-btn" onclick="closeSettings()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back
+      </button>
+      <div class="s-title">Settings</div>
+      <div style="width:60px"></div>
+    </div>
+    <div class="s-body">
+      <div class="s-lbl">Behaviour</div>
+      <div class="t-row">
+        <div><div class="t-label">Proactive messages</div><div class="t-sub">Checks in every 2 hours</div></div>
+        <div class="toggle" id="t-pro" onclick="toggle('proactive_enabled',this)"></div>
+      </div>
+      <div class="t-row">
+        <div><div class="t-label">Quiet hours</div><div class="t-sub">10 PM – 8 AM, no messages</div></div>
+        <div class="toggle" id="t-quiet" onclick="toggle('quiet_hours_enabled',this)"></div>
+      </div>
+      <div class="t-row">
+        <div><div class="t-label">Reply delay</div><div class="t-sub">Feels more natural</div></div>
+        <div class="toggle" id="t-delay" onclick="toggle('reply_delay_enabled',this)"></div>
+      </div>
+      <div class="s-lbl">Memory</div>
+      <div class="t-row">
+        <div><div class="t-label">Long-term memory</div><div class="t-sub">Powered by Mem0</div></div>
+        <div class="toggle" id="t-mem" onclick="toggle('memory_enabled',this)"></div>
+      </div>
+      <div class="s-lbl">System prompt</div>
+      <div class="prompt-wrap">
+        <div class="prompt-lbl">Sonnet's personality and instructions</div>
+        <textarea class="prompt-ta" id="prompt-ta" placeholder="You are Sonnet..."></textarea>
+        <button class="save-btn" id="save-btn" onclick="savePrompt()">Save prompt</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let settings={}, pendingFile=null, busy=false;
+const chat=document.getElementById('chat'), input=document.getElementById('msg-input'), sendBtn=document.getElementById('send-btn');
+
+function t12(){return new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true})}
+
+async function loadSettings(){
+  try{
+    const r=await fetch('/settings'); settings=await r.json();
+    ['pro','quiet','delay','mem'].forEach((k,i)=>{
+      const keys=['proactive_enabled','quiet_hours_enabled','reply_delay_enabled','memory_enabled'];
+      document.getElementById('t-'+k).className='toggle '+(settings[keys[i]]?'on':'');
+    });
+    document.getElementById('prompt-ta').value=settings.system_prompt||'';
+  }catch(e){console.error(e)}
+}
+
+async function toggle(key,el){
+  settings[key]=!settings[key];
+  el.className='toggle '+(settings[key]?'on':'');
+  await fetch('/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[key]:settings[key]})});
+}
+
+async function savePrompt(){
+  const p=document.getElementById('prompt-ta').value;
+  await fetch('/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system_prompt:p})});
+  const b=document.getElementById('save-btn'); b.textContent='Saved ✓';
+  setTimeout(()=>b.textContent='Save prompt',2000);
+}
+
+function openSettings(){document.getElementById('sp').classList.add('open')}
+function closeSettings(){document.getElementById('sp').classList.remove('open')}
+
+function addMsg(text,type,time){
+  const wrap=document.createElement('div'); wrap.className='msg-wrap '+type;
+  if(type==='proactive'){const tag=document.createElement('div');tag.className='pro-tag';tag.textContent='● proactive';wrap.appendChild(tag)}
+  const row=document.createElement('div'); row.className='msg-row';
+  if(type!=='user'){const av=document.createElement('div');av.className='msg-av';av.textContent='S';row.appendChild(av)}
+  const inner=document.createElement('div');
+  const b=document.createElement('div'); b.className='bubble '+type; b.textContent=text; inner.appendChild(b);
+  const tm=document.createElement('div'); tm.className='msg-time'; tm.textContent=time||t12();
+  if(type==='user') tm.style.textAlign='right'; inner.appendChild(tm);
+  row.appendChild(inner); wrap.appendChild(row); chat.appendChild(wrap);
+  chat.scrollTop=chat.scrollHeight;
+}
+
+function showTyping(){
+  const wrap=document.createElement('div'); wrap.className='msg-wrap bot'; wrap.id='typing';
+  const row=document.createElement('div'); row.className='msg-row';
+  const av=document.createElement('div'); av.className='msg-av'; av.textContent='S';
+  const t=document.createElement('div'); t.className='typing';
+  t.innerHTML='<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+  row.appendChild(av); row.appendChild(t); wrap.appendChild(row); chat.appendChild(wrap);
+  chat.scrollTop=chat.scrollHeight;
+}
+
+function removeTyping(){const t=document.getElementById('typing');if(t)t.remove()}
+
+function handleFile(el){
+  if(el.files[0]){
+    pendingFile=el.files[0];
+    document.getElementById('file-prev-area').innerHTML=`<div class="file-prev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#534AB7" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><div class="file-prev-name">${pendingFile.name}</div><button class="file-rm" onclick="clearFile()">×</button></div>`;
+  }
+}
+
+function clearFile(){pendingFile=null;document.getElementById('file-prev-area').innerHTML='';document.getElementById('file-input').value=''}
+
+function resize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px'}
+
+function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}}
+
+async function send(){
+  const text=input.value.trim();
+  if((!text&&!pendingFile)||busy) return;
+  busy=true; sendBtn.disabled=true;
+  addMsg(text?(pendingFile?text+' ['+pendingFile.name+']':text):(pendingFile?'['+pendingFile.name+']':''),'user');
+  input.value=''; input.style.height='auto';
+  const fd=new FormData();
+  if(text) fd.append('message',text);
+  if(pendingFile) fd.append('file',pendingFile);
+  clearFile(); showTyping();
+  try{
+    const r=await fetch('/chat',{method:'POST',body:fd}); const d=await r.json();
+    if(d.delay>0) await new Promise(res=>setTimeout(res,d.delay*1000));
+    removeTyping(); addMsg(d.reply,'bot');
+  }catch(e){removeTyping();addMsg('Something went wrong. Try again.','bot')}
+  busy=false; sendBtn.disabled=false; input.focus();
+}
+
+function connectSSE(){
+  const es=new EventSource('/stream');
+  es.onmessage=e=>{try{const m=JSON.parse(e.data);addMsg(m.text,'proactive',m.time)}catch{}};
+  es.onerror=()=>{es.close();setTimeout(connectSSE,5000)};
+}
+
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
+loadSettings(); connectSSE();
+</script>
+</body>
+</html>
