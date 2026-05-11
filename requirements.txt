@@ -4,3 +4,4 @@ uvicorn
 python-multipart
 pytz
 mem0ai
+psycopg2-binary
