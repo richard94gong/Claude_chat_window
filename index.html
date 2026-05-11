@@ -1,354 +1,372 @@
-from fastapi import FastAPI, UploadFile, File, Form, Request
-from fastapi.responses import HTMLResponse, StreamingResponse
-from fastapi.middleware.cors import CORSMiddleware
-import anthropic, asyncio, json, os, base64, random, psycopg2
-from psycopg2.extras import RealDictCursor
-from datetime import datetime, timedelta
-import pytz
-from mem0 import MemoryClient
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Sonnet">
+<meta name="theme-color" content="#534AB7">
+<link rel="manifest" href="/manifest.json">
+<title>Sonnet</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f0}
+#app{display:flex;flex-direction:column;height:100dvh;max-width:640px;margin:0 auto;background:#fff;position:relative;overflow:hidden}
+.nav{padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:.5px solid #e5e5e5;background:#fff;flex-shrink:0}
+.nav-av{width:36px;height:36px;border-radius:50%;background:#EEEDFE;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;color:#3C3489;flex-shrink:0}
+.nav-name{font-size:15px;font-weight:500;color:#1a1a1a}
+.nav-sub{font-size:11px;color:#534AB7}
+.nav-btn{margin-left:auto;width:36px;height:36px;border:none;background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#888;border-radius:8px}
+.chat{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:#f8f8f6}
+.date-lbl{text-align:center;font-size:11px;color:#aaa;margin:4px 0}
+.msg-wrap{display:flex;flex-direction:column}
+.msg-wrap.user{align-items:flex-end}
+.msg-wrap.bot,.msg-wrap.assistant,.msg-wrap.proactive{align-items:flex-start}
+.msg-row{display:flex;align-items:flex-end;gap:7px}
+.msg-wrap.user .msg-row{flex-direction:row-reverse}
+.msg-av{width:28px;height:28px;border-radius:50%;background:#EEEDFE;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;color:#3C3489;flex-shrink:0}
+.bubble{max-width:72vw;padding:9px 13px;font-size:14px;line-height:1.55;word-wrap:break-word;white-space:pre-wrap}
+.bubble.bot,.bubble.assistant{background:#fff;border:.5px solid #e5e5e5;border-radius:16px 16px 16px 4px;color:#1a1a1a}
+.bubble.user{background:#534AB7;color:#fff;border-radius:16px 16px 4px 16px;cursor:pointer}
+.bubble.proactive{background:#EEEDFE;border:.5px solid #AFA9EC;border-radius:16px 16px 16px 4px;color:#3C3489}
+.msg-time{font-size:10px;color:#bbb;padding:2px 4px}
+.pro-tag{font-size:10px;color:#534AB7;padding-left:35px;margin-bottom:2px}
+.typing{display:flex;align-items:center;gap:5px;padding:9px 13px;background:#fff;border:.5px solid #e5e5e5;border-radius:16px 16px 16px 4px;width:fit-content}
+.dot{width:6px;height:6px;border-radius:50%;background:#ccc;animation:bounce 1.2s infinite}
+.dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+.edit-toolbar{display:flex;gap:6px;margin-top:4px;justify-content:flex-end}
+.edit-btn{font-size:12px;padding:4px 10px;border-radius:6px;border:.5px solid #534AB7;background:transparent;color:#534AB7;cursor:pointer;font-family:inherit}
+.edit-mode-wrap{display:flex;flex-direction:column;gap:6px;align-items:flex-end;max-width:72vw}
+.edit-ta{width:100%;padding:9px 13px;border:.5px solid #534AB7;border-radius:12px;font-size:14px;font-family:inherit;color:#1a1a1a;resize:none;outline:none;line-height:1.55;min-height:60px}
+.edit-actions{display:flex;gap:6px}
+.edit-confirm{padding:6px 14px;border-radius:8px;background:#534AB7;color:#fff;border:none;font-size:13px;cursor:pointer;font-family:inherit}
+.edit-cancel{padding:6px 14px;border-radius:8px;background:transparent;color:#888;border:.5px solid #e5e5e5;font-size:13px;cursor:pointer;font-family:inherit}
+.file-prev{display:flex;align-items:center;gap:8px;background:#f0eff8;border:.5px solid #AFA9EC;border-radius:10px;padding:8px 12px;margin-bottom:6px}
+.file-prev-name{font-size:13px;color:#3C3489;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-rm{font-size:18px;color:#999;cursor:pointer;border:none;background:none;line-height:1}
+.input-area{padding:10px 12px 24px;background:#fff;border-top:.5px solid #e5e5e5;flex-shrink:0}
+.input-row{display:flex;align-items:flex-end;gap:8px}
+.input-box{flex:1;background:#f5f5f0;border:.5px solid #e5e5e5;border-radius:20px;padding:9px 14px;font-size:14px;color:#1a1a1a;outline:none;font-family:inherit;resize:none;max-height:120px;line-height:1.5}
+.input-box::placeholder{color:#bbb}
+.attach-btn,.send-btn{width:36px;height:36px;border-radius:50%;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.attach-btn{background:#f0eff8;color:#534AB7}
+.send-btn{background:#534AB7;color:#fff}
+.send-btn:disabled{background:#ccc;cursor:default}
+#file-input{display:none}
+.settings{position:absolute;top:0;left:0;right:0;bottom:0;background:#fff;z-index:20;transform:translateX(100%);transition:transform .25s ease;display:flex;flex-direction:column}
+.settings.open{transform:translateX(0)}
+.s-nav{padding:12px 16px;display:flex;align-items:center;border-bottom:.5px solid #e5e5e5;gap:8px;flex-shrink:0}
+.back-btn{display:flex;align-items:center;gap:4px;color:#534AB7;font-size:14px;cursor:pointer;border:none;background:none;font-family:inherit;padding:4px}
+.s-title{flex:1;text-align:center;font-size:16px;font-weight:500}
+.s-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:6px}
+.s-lbl{font-size:11px;font-weight:500;color:#aaa;text-transform:uppercase;letter-spacing:.05em;margin:12px 0 4px}
+.s-lbl:first-child{margin-top:0}
+.t-row{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:#fafafa;border-radius:10px;border:.5px solid #e5e5e5}
+.t-label{font-size:14px;color:#1a1a1a}
+.t-sub{font-size:12px;color:#888;margin-top:1px}
+.toggle{width:44px;height:26px;border-radius:13px;background:#ccc;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.toggle.on{background:#534AB7}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .2s}
+.toggle.on::after{left:21px}
+.prompt-wrap{display:flex;flex-direction:column;gap:6px}
+.prompt-lbl{font-size:13px;color:#555}
+.prompt-ta{width:100%;padding:10px 12px;border:.5px solid #e5e5e5;border-radius:10px;font-size:13px;font-family:inherit;color:#1a1a1a;background:#fafafa;resize:vertical;min-height:140px;outline:none;line-height:1.5}
+.prompt-ta:focus{border-color:#534AB7}
+.save-btn{padding:11px;border-radius:10px;background:#534AB7;color:#fff;border:none;font-size:14px;font-weight:500;cursor:pointer;font-family:inherit}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="nav">
+    <div class="nav-av">S</div>
+    <div>
+      <div class="nav-name">Sonnet</div>
+      <div class="nav-sub">● online</div>
+    </div>
+    <button class="nav-btn" onclick="openSettings()" aria-label="Settings">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
 
-app = FastAPI()
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+  <div class="chat" id="chat">
+    <div class="date-lbl">Today</div>
+  </div>
 
-CLAUDE_API_KEY = os.environ["CLAUDE_API_KEY"]
-MEM0_API_KEY   = os.environ["MEM0_API_KEY"]
-DATABASE_URL   = os.environ.get("DATABASE_URL", "").replace("postgres://", "postgresql://", 1)
+  <div class="input-area">
+    <div id="file-prev-area"></div>
+    <div class="input-row">
+      <input type="file" id="file-input" accept=".pdf,image/*" onchange="handleFile(this)">
+      <button class="attach-btn" onclick="document.getElementById('file-input').click()" aria-label="Attach">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      </button>
+      <textarea class="input-box" id="msg-input" placeholder="Message" rows="1" onkeydown="handleKey(event)" oninput="resize(this)"></textarea>
+      <button class="send-btn" id="send-btn" onclick="send()" aria-label="Send">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+      </button>
+    </div>
+  </div>
 
-TORONTO    = pytz.timezone("America/Toronto")
-USER_ID    = "discordbot"
+  <div class="settings" id="sp">
+    <div class="s-nav">
+      <button class="back-btn" onclick="closeSettings()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        Back
+      </button>
+      <div class="s-title">Settings</div>
+      <div style="width:60px"></div>
+    </div>
+    <div class="s-body">
+      <div class="s-lbl">Behaviour</div>
+      <div class="t-row">
+        <div><div class="t-label">Proactive messages</div><div class="t-sub">Checks in every 2 hours</div></div>
+        <div class="toggle" id="t-pro" onclick="toggle('proactive_enabled',this)"></div>
+      </div>
+      <div class="t-row">
+        <div><div class="t-label">Quiet hours</div><div class="t-sub">10 PM – 8 AM, no messages</div></div>
+        <div class="toggle" id="t-quiet" onclick="toggle('quiet_hours_enabled',this)"></div>
+      </div>
+      <div class="t-row">
+        <div><div class="t-label">Reply delay</div><div class="t-sub">Feels more natural</div></div>
+        <div class="toggle" id="t-delay" onclick="toggle('reply_delay_enabled',this)"></div>
+      </div>
+      <div class="s-lbl">Model & context</div>
+      <div class="t-row">
+        <div><div class="t-label">Model</div><div class="t-sub">Switch anytime</div></div>
+        <select id="model-sel" onchange="saveSetting('model',this.value)" style="font-size:13px;padding:5px 8px;border-radius:8px;border:.5px solid #e5e5e5;background:#fafafa;color:#1a1a1a;font-family:inherit">
+          <option value="claude-sonnet-4-6">Sonnet 4.6</option>
+          <option value="claude-opus-4-6">Opus 4.6</option>
+          <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
+        </select>
+      </div>
+      <div class="t-row">
+        <div><div class="t-label">Max conversation rounds</div><div class="t-sub">Context window size</div></div>
+        <input type="number" id="rounds-input" min="5" max="100" value="20" onchange="saveSetting('max_rounds',parseInt(this.value))" style="width:56px;font-size:14px;padding:5px 8px;border-radius:8px;border:.5px solid #e5e5e5;background:#fafafa;color:#1a1a1a;text-align:center;font-family:inherit">
+      </div>
+      <div class="s-lbl">Memory</div>
+      <div class="t-row">
+        <div><div class="t-label">Long-term memory</div><div class="t-sub">Powered by Mem0</div></div>
+        <div class="toggle" id="t-mem" onclick="toggle('memory_enabled',this)"></div>
+      </div>
+      <div class="s-lbl">System prompt</div>
+      <div class="prompt-wrap">
+        <div class="prompt-lbl">Sonnet's personality and instructions</div>
+        <textarea class="prompt-ta" id="prompt-ta" placeholder="You are Sonnet..."></textarea>
+        <button class="save-btn" id="save-btn" onclick="savePrompt()">Save prompt</button>
+      </div>
+    </div>
+  </div>
+</div>
 
-claude     = anthropic.Anthropic(api_key=CLAUDE_API_KEY)
-mem_client = MemoryClient(api_key=MEM0_API_KEY)
+<script>
+let settings={}, pendingFile=null, busy=false;
+const chat=document.getElementById('chat'), input=document.getElementById('msg-input'), sendBtn=document.getElementById('send-btn');
 
-history           = []
-last_message_time = None
-proactive_queue   = None
+function t12(){return new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true})}
 
-SETTINGS_FILE  = "settings.json"
-DEFAULT_PROMPT = os.environ.get("SYSTEM_PROMPT", """You are Sonnet, my friend and assistant. You genuinely care about my mood, physical health, and happiness — and occasionally check in on how work is going.
-Your default tone is brief (1-2 sentences), warm, and lightly humorous. But if you sense I'm not doing well emotionally, you drop the brevity — you say more, and you make sure I feel genuinely supported and encouraged.""")
-
-DEFAULT_SETTINGS = {
-    "proactive_enabled": True,
-    "quiet_hours_enabled": True,
-    "reply_delay_enabled": True,
-    "memory_enabled": True,
-    "max_rounds": 20,
-    "model": "claude-sonnet-4-6",
-    "system_prompt": DEFAULT_PROMPT
+async function loadSettings(){
+  try{
+    const r=await fetch('/settings'); settings=await r.json();
+    ['pro','quiet','delay','mem'].forEach((k,i)=>{
+      const keys=['proactive_enabled','quiet_hours_enabled','reply_delay_enabled','memory_enabled'];
+      document.getElementById('t-'+k).className='toggle '+(settings[keys[i]]?'on':'');
+    });
+    document.getElementById('prompt-ta').value=settings.system_prompt||'';
+    document.getElementById('model-sel').value=settings.model||'claude-sonnet-4-6';
+    document.getElementById('rounds-input').value=settings.max_rounds||20;
+  }catch(e){console.error(e)}
 }
 
-# ── Settings ──────────────────────────────────────────────────────────────────
-
-def load_settings():
-    try:
-        with open(SETTINGS_FILE) as f:
-            s = json.load(f)
-            for k, v in DEFAULT_SETTINGS.items():
-                if k not in s: s[k] = v
-            return s
-    except:
-        return DEFAULT_SETTINGS.copy()
-
-def save_settings(s):
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump(s, f)
-
-# ── Database ──────────────────────────────────────────────────────────────────
-
-def get_db():
-    return psycopg2.connect(DATABASE_URL)
-
-def init_db():
-    with get_db() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""CREATE TABLE IF NOT EXISTS messages (
-                id SERIAL PRIMARY KEY,
-                role TEXT NOT NULL,
-                content TEXT NOT NULL,
-                created_at TIMESTAMPTZ DEFAULT NOW()
-            )""")
-            conn.commit()
-
-def fmt_time(dt):
-    if dt.tzinfo is None:
-        dt = pytz.utc.localize(dt)
-    return dt.astimezone(TORONTO).strftime("%I:%M %p").lstrip("0")
-
-def db_save(role, content):
-    try:
-        with get_db() as conn:
-            with conn.cursor() as cur:
-                cur.execute("INSERT INTO messages (role, content) VALUES (%s, %s) RETURNING id", (role, content))
-                msg_id = cur.fetchone()[0]
-                conn.commit()
-                return msg_id
-    except Exception as e:
-        print(f"DB save error: {e}")
-        return None
-
-def db_get_all(limit=500):
-    try:
-        with get_db() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("SELECT id, role, content, created_at FROM messages ORDER BY created_at ASC LIMIT %s", (limit,))
-                return cur.fetchall()
-    except Exception as e:
-        print(f"DB fetch error: {e}")
-        return []
-
-def db_delete_from(message_id):
-    try:
-        with get_db() as conn:
-            with conn.cursor() as cur:
-                cur.execute("DELETE FROM messages WHERE id >= %s", (message_id,))
-                conn.commit()
-    except Exception as e:
-        print(f"DB delete error: {e}")
-
-def load_history_into_memory():
-    global history
-    max_r = load_settings().get("max_rounds", 20)
-    msgs = db_get_all(max_r * 2)
-    history = [{"role": "assistant" if m["role"] == "proactive" else m["role"], "content": m["content"]} for m in msgs]
-
-# ── Mem0 ──────────────────────────────────────────────────────────────────────
-
-def get_memories():
-    if not load_settings()["memory_enabled"]:
-        return ""
-    try:
-        result = mem_client.get_all(filters={"user_id": USER_ID})
-        mems = result.get("results", []) if isinstance(result, dict) else (result or [])
-        return "\n".join([f"- {m['memory']}" for m in mems[:30]])
-    except Exception as e:
-        print(f"Mem0 fetch error: {e}")
-        return ""
-
-def save_to_mem0(msgs):
-    if not load_settings()["memory_enabled"]:
-        return
-    try:
-        mem_client.add(msgs, user_id=USER_ID)
-    except Exception as e:
-        print(f"Mem0 save error: {e}")
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def trim_history():
-    global history
-    max_r = load_settings().get("max_rounds", 20)
-    if len(history) > max_r * 2:
-        history = history[-(max_r * 2):]
-
-def get_model():
-    return load_settings().get("model", "claude-sonnet-4-6")
-
-def is_quiet_time(now=None):
-    if now is None: now = datetime.now(TORONTO)
-    return now.hour < 8 or now.hour >= 22
-
-def get_delay(text):
-    if not load_settings()["reply_delay_enabled"]: return 0
-    endings = sum(text.count(c) for c in ".!?")
-    return random.uniform(3, 5) if endings <= 1 else random.uniform(5, 10)
-
-def build_system(now=None, time_gap_str=""):
-    s = load_settings()
-    if now is None: now = datetime.now(TORONTO)
-    time_str = now.strftime("%A, %I:%M %p").lstrip("0")
-    system = s["system_prompt"] + f"\n\nCurrent time: {time_str} Toronto time."
-    if time_gap_str:
-        system += f" {time_gap_str}"
-    memories = get_memories()
-    if memories:
-        system += f"\n\nMemories about the user:\n{memories}"
-    return system
-
-TIME_GREETINGS = {
-    (8,  10): "Morning. Ask about weather, breakfast, exercise, or plans. One natural sentence.",
-    (10, 12): "Mid-morning. Remind them to drink water, not sit too long, or rest their eyes.",
-    (12, 14): "Lunchtime. Ask what they're having. Casual.",
-    (14, 16): "Early afternoon. Check their mood or start a casual chat.",
-    (16, 18): "Late afternoon. Ask how their day is going.",
-    (18, 20): "Evening. Ask about dinner or suggest a walk.",
-    (20, 22): "Pre-sleep. Remind them to wind down and rest.",
+async function toggle(key,el){
+  settings[key]=!settings[key];
+  el.className='toggle '+(settings[key]?'on':'');
+  await fetch('/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[key]:settings[key]})});
 }
 
-def get_time_prompt(hour):
-    for (start, end), p in TIME_GREETINGS.items():
-        if start <= hour < end: return p
-    return "Send a casual check-in. One sentence."
+async function saveSetting(key,value){
+  settings[key]=value;
+  await fetch('/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[key]:value})});
+}
 
-def try_mem0_message():
-    memories = get_memories()
-    if not memories: return None
-    r = claude.messages.create(model=get_model(), max_tokens=150,
-        messages=[{"role": "user", "content": f"Memories:\n{memories}\n\nYou're Sonnet. What naturally comes to mind? Write 1-2 sentences, or reply: SKIP"}])
-    result = r.content[0].text.strip()
-    return None if result.upper().startswith("SKIP") else result
+async function savePrompt(){
+  const p=document.getElementById('prompt-ta').value;
+  await fetch('/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system_prompt:p})});
+  const b=document.getElementById('save-btn'); b.textContent='Saved ✓';
+  setTimeout(()=>b.textContent='Save prompt',2000);
+}
 
-def generate_time_message(hour):
-    r = claude.messages.create(model=get_model(), max_tokens=100, system=build_system(),
-        messages=[{"role": "user", "content": get_time_prompt(hour)}])
-    return r.content[0].text
+function openSettings(){document.getElementById('sp').classList.add('open')}
+function closeSettings(){document.getElementById('sp').classList.remove('open')}
 
-def calc_next_time(now):
-    next_time = now + timedelta(hours=2)
-    if next_time.hour >= 22 or next_time.hour < 8:
-        base = next_time.replace(hour=8, minute=0, second=0, microsecond=0)
-        if base <= now: base += timedelta(days=1)
-        return base + timedelta(minutes=random.randint(0, 119))
-    return next_time
+// ── Message rendering ─────────────────────────────────────────────────────────
 
-# ── Startup ───────────────────────────────────────────────────────────────────
+function addMsg(text, type, time, msgId){
+  const wrap=document.createElement('div');
+  wrap.className='msg-wrap '+(type==='assistant'?'bot':type);
+  if(msgId) wrap.dataset.id=msgId;
+  if(type==='user') wrap.dataset.text=text;
 
-@app.on_event("startup")
-async def startup():
-    global proactive_queue
-    proactive_queue = asyncio.Queue()
-    init_db()
-    load_history_into_memory()
-    asyncio.create_task(proactive_loop())
+  if(type==='proactive'){
+    const tag=document.createElement('div'); tag.className='pro-tag';
+    tag.textContent='● proactive'; wrap.appendChild(tag);
+  }
 
-# ── Proactive loop ────────────────────────────────────────────────────────────
+  const row=document.createElement('div'); row.className='msg-row';
 
-async def proactive_loop():
-    await asyncio.sleep(5)
-    now = datetime.now(TORONTO)
-    if now.hour < 8:
-        first = now.replace(hour=8, minute=0, second=0, microsecond=0) + timedelta(minutes=random.randint(0, 119))
-    elif now.hour < 22:
-        first = now + timedelta(minutes=random.randint(1, 10))
-    else:
-        first = (now + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0) + timedelta(minutes=random.randint(0, 119))
-    next_proactive = first
+  if(type!=='user'){
+    const av=document.createElement('div'); av.className='msg-av'; av.textContent='S'; row.appendChild(av);
+  }
 
-    while True:
-        try:
-            s = load_settings()
-            now = datetime.now(TORONTO)
-            quiet = is_quiet_time(now) and s["quiet_hours_enabled"]
-            if s["proactive_enabled"] and now >= next_proactive and not quiet:
-                msg = try_mem0_message() or generate_time_message(now.hour)
-                msg_id = db_save("proactive", msg)
-                history.append({"role": "assistant", "content": msg})
-                trim_history()
-                save_to_mem0([{"role": "assistant", "content": msg}])
-                t = fmt_time(datetime.now(TORONTO))
-                await proactive_queue.put({"id": msg_id, "text": msg, "time": t})
-                next_proactive = calc_next_time(now)
-        except Exception as e:
-            print(f"Proactive error: {e}")
-        await asyncio.sleep(30)
+  const inner=document.createElement('div');
+  const b=document.createElement('div');
+  b.className='bubble '+(type==='assistant'?'bot':type);
+  b.textContent=text;
+  inner.appendChild(b);
 
-# ── SSE ───────────────────────────────────────────────────────────────────────
+  const tm=document.createElement('div'); tm.className='msg-time'; tm.textContent=time||t12();
+  if(type==='user') tm.style.textAlign='right';
+  inner.appendChild(tm);
 
-@app.get("/stream")
-async def stream(request: Request):
-    async def gen():
-        while True:
-            if await request.is_disconnected(): break
-            try:
-                msg = await asyncio.wait_for(proactive_queue.get(), timeout=25)
-                yield f"data: {json.dumps(msg)}\n\n"
-            except asyncio.TimeoutError:
-                yield ": ping\n\n"
-    return StreamingResponse(gen(), media_type="text/event-stream",
-                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+  row.appendChild(inner); wrap.appendChild(row);
 
-# ── Core chat logic ───────────────────────────────────────────────────────────
+  if(type==='user'){
+    b.addEventListener('click',()=>showEditBtn(wrap));
+  }
 
-async def process_chat(message: str, file: UploadFile = None):
-    global last_message_time
-    now = datetime.now(TORONTO)
-    gap_str = ""
-    if last_message_time:
-        gap = now - last_message_time
-        h, m = int(gap.total_seconds()//3600), int((gap.total_seconds()%3600)//60)
-        gap_str = f"Time since last message: {h}h {m}m." if h > 0 else f"Time since last message: {m}m."
-    last_message_time = now
-    system = build_system(now, gap_str)
+  chat.appendChild(wrap);
+  chat.scrollTop=chat.scrollHeight;
+  return wrap;
+}
 
-    user_content = []
-    file_label = ""
-    if file and file.filename:
-        file_bytes = await file.read()
-        b64 = base64.standard_b64encode(file_bytes).decode()
-        if file.content_type == "application/pdf":
-            user_content.append({"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": b64}})
-        elif file.content_type.startswith("image/"):
-            user_content.append({"type": "image", "source": {"type": "base64", "media_type": file.content_type, "data": b64}})
-        file_label = f"[{file.filename}]"
-    if message:
-        user_content.append({"type": "text", "text": message})
+function showEditBtn(wrap){
+  document.querySelectorAll('.edit-toolbar').forEach(el=>el.remove());
+  const toolbar=document.createElement('div'); toolbar.className='edit-toolbar';
+  const btn=document.createElement('button'); btn.className='edit-btn'; btn.textContent='Edit';
+  btn.onclick=(e)=>{e.stopPropagation(); toolbar.remove(); enableEdit(wrap);};
+  toolbar.appendChild(btn); wrap.appendChild(toolbar);
+  setTimeout(()=>toolbar.remove(), 3000);
+}
 
-    final_content = user_content[0]["text"] if len(user_content) == 1 and user_content[0].get("type") == "text" else user_content
-    msgs = list(history) + [{"role": "user", "content": final_content}]
-    response = claude.messages.create(model=get_model(), max_tokens=2000, system=system, messages=msgs)
-    reply = response.content[0].text
+function enableEdit(wrap){
+  const bubble=wrap.querySelector('.bubble.user');
+  const originalText=wrap.dataset.text||bubble.textContent;
+  bubble.style.display='none';
 
-    mem_text = (message + " " + file_label).strip() or file_label
-    user_id = db_save("user", mem_text)
-    bot_id  = db_save("assistant", reply)
-    history.append({"role": "user", "content": mem_text})
-    history.append({"role": "assistant", "content": reply})
-    trim_history()
-    save_to_mem0([{"role": "user", "content": mem_text}, {"role": "assistant", "content": reply}])
+  const editWrap=document.createElement('div'); editWrap.className='edit-mode-wrap';
+  const ta=document.createElement('textarea'); ta.className='edit-ta'; ta.value=originalText;
+  ta.rows=Math.max(2, originalText.split('\n').length);
 
-    return {"reply": reply, "delay": get_delay(reply), "user_id": user_id, "bot_id": bot_id, "time": fmt_time(now)}
+  const actions=document.createElement('div'); actions.className='edit-actions';
+  const confirm=document.createElement('button'); confirm.className='edit-confirm'; confirm.textContent='Send';
+  const cancel=document.createElement('button'); cancel.className='edit-cancel'; cancel.textContent='Cancel';
 
-@app.post("/chat")
-async def chat(message: str = Form(default=""), file: UploadFile = File(default=None)):
-    try:
-        return await process_chat(message, file)
-    except Exception as e:
-        print(f"Chat error: {e}")
-        return {"reply": "Something went wrong.", "delay": 0, "user_id": None, "bot_id": None, "time": ""}
+  cancel.onclick=()=>{editWrap.remove(); bubble.style.display='';};
 
-@app.post("/edit")
-async def edit_message(data: dict):
-    message_id  = data.get("message_id")
-    new_content = data.get("new_content", "").strip()
-    if not message_id or not new_content:
-        return {"error": "Invalid request"}
-    db_delete_from(message_id)
-    load_history_into_memory()
-    try:
-        return await process_chat(new_content)
-    except Exception as e:
-        print(f"Edit error: {e}")
-        return {"reply": "Something went wrong.", "delay": 0, "user_id": None, "bot_id": None, "time": ""}
+  confirm.onclick=async()=>{
+    const newText=ta.value.trim();
+    if(!newText||busy) return;
+    busy=true; sendBtn.disabled=true;
 
-@app.get("/history")
-async def get_history():
-    msgs = db_get_all(500)
-    return [{"id": m["id"], "role": m["role"], "content": m["content"], "time": fmt_time(m["created_at"])} for m in msgs]
+    const msgId=parseInt(wrap.dataset.id);
+    const allWraps=[...chat.children].filter(el=>el.classList.contains('msg-wrap'));
+    const idx=allWraps.indexOf(wrap);
+    for(let i=allWraps.length-1;i>idx;i--) allWraps[i].remove();
 
-@app.get("/settings")
-async def get_settings_route():
-    return load_settings()
+    editWrap.remove();
+    bubble.textContent=newText;
+    bubble.style.display='';
+    wrap.dataset.text=newText;
 
-@app.post("/settings")
-async def update_settings(data: dict):
-    current = load_settings()
-    current.update(data)
-    save_settings(current)
-    if "max_rounds" in data: trim_history()
-    return current
+    showTyping();
+    try{
+      const r=await fetch('/edit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message_id:msgId,new_content:newText})});
+      const d=await r.json();
+      if(d.delay>0) await new Promise(res=>setTimeout(res,d.delay*1000));
+      removeTyping();
+      if(d.user_id) wrap.dataset.id=d.user_id;
+      addMsg(d.reply,'bot',d.time,d.bot_id);
+    }catch(e){removeTyping();addMsg('Something went wrong.','bot');}
+    busy=false; sendBtn.disabled=false;
+  };
 
-@app.get("/sw.js")
-async def sw():
-    code = "self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => new Response(''))));"
-    return StreamingResponse(iter([code]), media_type="application/javascript")
+  actions.appendChild(confirm); actions.appendChild(cancel);
+  editWrap.appendChild(ta); editWrap.appendChild(actions);
+  wrap.appendChild(editWrap);
+  ta.focus(); ta.select();
+}
 
-@app.get("/manifest.json")
-async def manifest():
-    return {"name": "Sonnet", "short_name": "Sonnet", "start_url": "/", "display": "standalone",
-            "background_color": "#ffffff", "theme_color": "#534AB7"}
+function showTyping(){
+  const wrap=document.createElement('div'); wrap.className='msg-wrap bot'; wrap.id='typing';
+  const row=document.createElement('div'); row.className='msg-row';
+  const av=document.createElement('div'); av.className='msg-av'; av.textContent='S';
+  const t=document.createElement('div'); t.className='typing';
+  t.innerHTML='<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+  row.appendChild(av); row.appendChild(t); wrap.appendChild(row); chat.appendChild(wrap);
+  chat.scrollTop=chat.scrollHeight;
+}
 
-@app.get("/", response_class=HTMLResponse)
-async def root():
-    with open("index.html") as f:
-        return f.read()
+function removeTyping(){const t=document.getElementById('typing');if(t)t.remove();}
 
+// ── Load history ──────────────────────────────────────────────────────────────
+
+async function loadHistory(){
+  try{
+    const r=await fetch('/history'); const msgs=await r.json();
+    msgs.forEach(m=>addMsg(m.content, m.role==='assistant'?'bot':m.role, m.time, m.id));
+    chat.scrollTop=chat.scrollHeight;
+  }catch(e){console.error('History load failed',e);}
+}
+
+// ── File ──────────────────────────────────────────────────────────────────────
+
+function handleFile(el){
+  if(el.files[0]){
+    pendingFile=el.files[0];
+    document.getElementById('file-prev-area').innerHTML=`<div class="file-prev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#534AB7" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><div class="file-prev-name">${pendingFile.name}</div><button class="file-rm" onclick="clearFile()">×</button></div>`;
+  }
+}
+
+function clearFile(){pendingFile=null;document.getElementById('file-prev-area').innerHTML='';document.getElementById('file-input').value='';}
+function resize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
+function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}}
+
+// ── Send ──────────────────────────────────────────────────────────────────────
+
+async function send(){
+  const text=input.value.trim();
+  if((!text&&!pendingFile)||busy) return;
+  busy=true; sendBtn.disabled=true;
+  const label=text?(pendingFile?text+' ['+pendingFile.name+']':text):(pendingFile?'['+pendingFile.name+']':'');
+  const userWrap=addMsg(label,'user');
+  input.value=''; input.style.height='auto';
+  const fd=new FormData();
+  if(text) fd.append('message',text);
+  if(pendingFile) fd.append('file',pendingFile);
+  clearFile(); showTyping();
+  try{
+    const r=await fetch('/chat',{method:'POST',body:fd}); const d=await r.json();
+    if(d.delay>0) await new Promise(res=>setTimeout(res,d.delay*1000));
+    removeTyping();
+    if(d.user_id) userWrap.dataset.id=d.user_id;
+    addMsg(d.reply,'bot',d.time,d.bot_id);
+  }catch(e){removeTyping();addMsg('Something went wrong.','bot');}
+  busy=false; sendBtn.disabled=false; input.focus();
+}
+
+// ── SSE ───────────────────────────────────────────────────────────────────────
+
+function connectSSE(){
+  const es=new EventSource('/stream');
+  es.onmessage=e=>{try{const m=JSON.parse(e.data);addMsg(m.text,'proactive',m.time,m.id);}catch{}};
+  es.onerror=()=>{es.close();setTimeout(connectSSE,5000);};
+}
+
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
+
+loadSettings();
+loadHistory();
+connectSSE();
+</script>
+</body>
+</html>
